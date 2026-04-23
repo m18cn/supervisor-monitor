@@ -158,7 +158,7 @@ threads = 2
 ### 3.3 环境变量
 
 在宝塔 Python 项目设置中，添加环境变量：
-- `配置.env 无需添加`
+`配置.env 无需添加`
 - `ADMIN_USER`
 - `ADMIN_PASSWORD`
 - `SECRET_KEY`
