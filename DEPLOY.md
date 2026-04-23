@@ -241,7 +241,7 @@ chmod 775 /www/wwwroot/supervisor-monitor/logs
 
 ### 6.2 连接 Supervisor 失败
 
-当前采用的连接配置如下（固定方案）：
+当前采用的连接配置如下：
 
 ```ini
 [unix_http_server]
@@ -293,7 +293,7 @@ sudo chmod 440 /etc/sudoers.d/supervisor-monitor
 
 ### 6.4 systemd 显示运行但前端无进程（CGroup 残留）
 
-现象：`systemctl status supervisord` 的 CGroup 里还有 WorkerMan/PHP 进程，但前端列表为空或与 `supervisorctl status` 不一致。
+现象：`systemctl status supervisord` 的 CGroup 里还有 WorkerMan1/WorkerMan2 进程，但前端列表为空或与 `supervisorctl status` 不一致。
 
 原因：systemd 看到的是 cgroup 内存活进程；前端看到的是 Supervisor 当前已加载配置。若服务文件使用 `KillMode=process`，停止/重启时可能残留子进程。
 
