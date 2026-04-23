@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor 守护进程监控系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div id="login-panel" class="panel">
+            <div class="login-box">
+                <h1>Supervisor 监控系统</h1>
+                <p class="login-subtitle">请登录以继续</p>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" name="username" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    <div id="login-error" class="error-msg"></div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="main-panel" class="panel hidden">
+            <header class="header">
+                <h1>Supervisor 守护进程监控</h1>
+                <div class="header-actions">
+                    <span id="user-info"></span>
+                    <button id="btn-logout" class="btn btn-outline">登出</button>
+                    <button id="btn-add" class="btn btn-primary">添加进程</button>
+                </div>
+            </header>
+
+            <main class="content">
+                <section class="supervisor-service-section">
+                    <div class="section-header">
+                        <h2>SuperVisord 服务</h2>
+                        <div class="section-actions">
+                            <span class="service-status-badge" id="service-status">检测中...</span>
+                            <button type="button" id="btn-svc-start" class="btn btn-primary btn-sm">启动</button>
+                            <button type="button" id="btn-svc-stop" class="btn btn-outline btn-sm">停止</button>
+                            <button type="button" id="btn-svc-restart" class="btn btn-outline btn-sm">重启</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-value" id="stat-total">0</span>
+                        <span class="stat-label">总进程数</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value stat-running" id="stat-running">0</span>
+                        <span class="stat-label">运行中</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value stat-stopped" id="stat-stopped">0</span>
+                        <span class="stat-label">已停止</span>
+                    </div>
+                </section>
+
+                <section class="daemon-section">
+                    <div class="section-header">
+                        <h2>已启动的守护进程</h2>
+                        <div class="section-actions">
+                            <span class="auto-check-badge" id="auto-check-badge">自动检查中（每4秒）</span>
+                            <button type="button" id="btn-refresh" class="btn btn-outline btn-sm">手动刷新</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="process-table">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>启动用户</th>
+                                    <th>进程ID</th>
+                                    <th>进程数量</th>
+                                    <th>优先级</th>
+                                    <th>进程管理</th>
+                                    <th>状态</th>
+                                    <th>文件位置</th>
+                                    <th>配置文件</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-tbody">
+                                <tr class="empty-row">
+                                    <td colspan="10">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pagination-wrap" class="pagination-wrap hidden"></div>
+                </section>
+                <section class="logs-section">
+                    <div class="section-header">
+                        <h2>日志</h2>
+                        <div class="section-actions">
+                            <button type="button" class="btn btn-outline btn-sm btn-log-tab active" data-tab="service">服务日志</button>
+                            <button type="button" class="btn btn-outline btn-sm btn-log-tab" data-tab="runtime">运行日志</button>
+                        </div>
+                    </div>
+                    <div class="log-content">
+                        <div id="log-anomaly-alert" class="log-anomaly-alert hidden"></div>
+                        <div id="runtime-log-selector" class="runtime-log-selector hidden">
+                            <label for="runtime-process-select">选择进程：</label>
+                            <select id="runtime-process-select">
+                                <option value="">-- 请选择进程 --</option>
+                            </select>
+                        </div>
+                        <pre id="log-content"></pre>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>编辑守护进程 - <span id="edit-process-name"></span></h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <form id="edit-form">
+                <input type="hidden" id="edit_process_name" name="process_name">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="edit_command">启动命令 <span class="required">*</span></label>
+                        <input type="text" id="edit_command" name="command" required placeholder="如: /usr/bin/python app.py">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_directory">工作目录</label>
+                        <input type="text" id="edit_directory" name="directory" placeholder="如: /var/www/myapp">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="edit_user">启动用户</label>
+                        <div class="input-with-btn">
+                            <input type="text" id="edit_user" name="user" placeholder="留空则使用默认用户">
+                            <button type="button" id="btn-edit-query-user" class="btn btn-outline btn-sm">自查询</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_numprocs">进程数量</label>
+                        <input type="number" id="edit_numprocs" name="numprocs" value="1" min="1" max="100" placeholder="1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_autostart">自动启动</label>
+                            <select id="edit_autostart" name="autostart">
+                                <option value="true">是</option>
+                                <option value="false">否</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_autorestart">自动重启策略</label>
+                            <select id="edit_autorestart" name="autorestart">
+                                <option value="unexpected">unexpected（异常退出时重启）</option>
+                                <option value="true">true（始终重启）</option>
+                                <option value="false">false（不重启）</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_environment">环境变量</label>
+                        <input type="text" id="edit_environment" name="environment" placeholder="如: PATH=/usr/bin,HOME=/tmp">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_priority">启动优先级</label>
+                        <input type="number" id="edit_priority" name="priority" value="999" min="1" max="999">
+                    </div>
+                    <div id="edit-error" class="error-msg"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-cancel">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>添加守护进程</h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <form id="add-form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="process_name">进程名称 <span class="required">*</span></label>
+                        <input type="text" id="process_name" name="process_name" required placeholder="如: myapp、sora_video" pattern="[a-zA-Z0-9_\-]+" title="仅支持字母、数字、下划线和连字符，不能包含冒号">
+                    </div>
+                    <div class="form-group">
+                        <label for="command">启动命令 <span class="required">*</span></label>
+                        <input type="text" id="command" name="command" required placeholder="如: /usr/bin/python app.py">
+                    </div>
+                    <div class="form-group">
+                        <label for="directory">工作目录</label>
+                        <input type="text" id="directory" name="directory" placeholder="如: /var/www/myapp">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="user">启动用户</label>
+                        <div class="input-with-btn">
+                            <input type="text" id="user" name="user" placeholder="留空则使用默认用户，如: www-data">
+                            <button type="button" id="btn-query-user" class="btn btn-outline btn-sm">自查询</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="numprocs">进程数量</label>
+                        <input type="number" id="numprocs" name="numprocs" value="1" min="1" max="100" placeholder="1">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="autostart">自动启动</label>
+                            <select id="autostart" name="autostart">
+                                <option value="true">是</option>
+                                <option value="false">否</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="autorestart">自动重启策略</label>
+                            <select id="autorestart" name="autorestart">
+                                <option value="unexpected">unexpected（异常退出时重启）</option>
+                                <option value="true">true（始终重启）</option>
+                                <option value="false">false（不重启）</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="environment">环境变量</label>
+                        <input type="text" id="environment" name="environment" placeholder="如: PATH=/usr/bin,HOME=/tmp">
+                    </div>
+                    <div class="form-group">
+                        <label for="priority">启动优先级</label>
+                        <input type="number" id="priority" name="priority" value="999" min="1" max="999">
+                    </div>
+                    <div id="add-error" class="error-msg"></div>
+                    <div id="add-status" class="add-status-msg hidden"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-cancel">取消</button>
+                    <button type="submit" id="add-submit-btn" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="process-log-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>进程日志 - <span id="log-process-name"></span></h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="process-log-anomaly" class="log-anomaly-alert hidden"></div>
+                <pre id="process-log-content" class="log-pre"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div id="config-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>配置文件 - <span id="config-process-name"></span></h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="config-content" class="log-pre"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div id="stop-supervisor-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>确认停止</h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-text">停止 SuperVisord 将停止所有托管进程，确定继续？</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-cancel">取消</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-stop-supervisor">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>确认删除</h2>
+                <button type="button" class="modal-close" aria-label="关闭">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除任务 <strong id="delete-process-name"></strong> 吗？此操作将停止并删除该任务下的所有进程。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-cancel">取消</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pid-popover" class="process-mgmt-popover hidden">
+        <div class="popover-header">进程ID</div>
+        <div class="popover-body popover-pid-content"></div>
+    </div>
+
+    <div id="process-mgmt-popover" class="process-mgmt-popover hidden">
+        <div class="popover-header">进程管理</div>
+        <div class="popover-body">
+            <button type="button" class="btn btn-primary btn-sm popover-btn-start" data-name="">启动</button>
+            <button type="button" class="btn btn-outline btn-sm popover-btn-stop" data-name="">停止</button>
+            <button type="button" class="btn btn-outline btn-sm popover-btn-restart" data-name="">重启</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

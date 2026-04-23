@@ -1,0 +1,5 @@
+"""uWSGI 入口"""
+from app import create_app
+import os
+
+app = create_app(os.environ.get('FLASK_ENV', 'production'))
