@@ -25,7 +25,7 @@
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量（按当前部署方案）
+### 2. 配置环境变量
 
 ```bash
 export ADMIN_USER=admin
@@ -89,7 +89,7 @@ python run.py
 
 ## 部署
 
-详见 [DEPLOY.md](DEPLOY.md)（已按当前线上方案整理）。
+详见 [DEPLOY.md](DEPLOY.md)。
 
 ## 性能要求
 
